@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mental Disorder Diagnosis Predictor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}"> <!-- Correctly link to the external CSS -->
+</head>
+<body>
+    <h2>Mental Disorder Diagnosis Predictor</h2>
+
+    <!-- Introductory message -->
+    <div id="intro-message" class="message-container active">
+        <p>Please answer these questions honestly. Your responses will help provide a more accurate diagnosis.</p>
+        <button id="start">Start</button>
+    </div>
+
+    <form id="diagnosisForm">
+        {% for symptom, options in symptoms.items() %}
+            <div class="question-container" id="question-{{ loop.index }}">
+                <label for="{{ symptom }}">
+                    {% if symptom == "Sadness" %}Do you often feel down or experience prolonged sadness?{% elif symptom == "Euphoric" %}Do you frequently feel extremely joyful or energetic, more than usual?{% elif symptom == "Exhausted" %}Do you often feel fatigued or lacking in energy?{% elif symptom == "Sleep dissorder" %}Do you experience difficulties with sleep, such as trouble falling asleep or staying asleep?{% elif symptom == "Mood Swing" %}Do you find that your mood shifts dramatically, often without a clear cause?{% elif symptom == "Suicidal thoughts" %}Have you recently had thoughts of self-harm or ending your life?{% elif symptom == "Anorxia" %}Do you often avoid eating or find yourself not wanting to eat, even when you’re hungry?{% elif symptom == "Authority Respect" %}Do you generally feel a strong sense of respect or deference toward authority figures?{% elif symptom == "Try-Explanation" %}Do you often feel the need to justify or explain your actions to others?{% elif symptom == "Aggressive Response" %}Do you find yourself reacting with anger or aggression in challenging situations?{% elif symptom == "Ignore & Move-On" %}Are you inclined to move on quickly from difficult situations, without dwelling on them?{% elif symptom == "Nervous Break-down" %}Have you experienced moments of intense stress that feel overwhelming or out of control?{% elif symptom == "Admit Mistakes" %}Are you comfortable admitting mistakes or acknowledging when you're wrong?{% elif symptom == "Overthinking" %}Do you often find yourself thinking deeply or excessively about problems or situations?{% elif symptom == "Sexual Activity" %}How would you describe the frequency and satisfaction of your intimate(marital) relationships?{% elif symptom == "Concentration" %}Do you find it challenging to focus or maintain concentration on tasks?{% elif symptom == "Optimisim" %}Would you describe yourself as generally positive or hopeful about the future?{% endif %}
+                </label>
+                <div class="options" data-symptom="{{ symptom }}">
+                    {% if options['type'] == 'ordinal' %}
+                        <button type="button" data-value="0.0">Seldom</button>
+                        <button type="button" data-value="1.0">Sometimes</button>
+                        <button type="button" data-value="2.0">Usually</button>
+                        <button type="button" data-value="3.0">Most-Often</button>
+                    {% elif options['type'] == 'binary' %}
+                        <button type="button" data-value="1.0">Definitely Yes</button>
+                        <button type="button" data-value="0.75">Probably Yes</button>
+                        <button type="button" data-value="0.5">Uncertain</button>
+                        <button type="button" data-value="0.25">Probably No</button>
+                        <button type="button" data-value="0.0">Definitely No</button>
+                    {% elif options['type'] == 'numerical' %}
+                        <input type="range" id="{{ symptom }}" min="0.1" max="1.0" step="0.1" value="0.1" oninput="updateSlider('{{ symptom }}', this.value)">
+                        <span id="{{ symptom }}_percentage">10%</span>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+        <div id="navigation-buttons">
+            <button type="button" id="prev">Previous</button>
+            <button type="button" id="next">Next</button>
+            <button type="submit" id="submit">Submit</button>
+        </div>
+    </form>
+    
+    <!-- Diagnosis result display -->
+    <div id="result">
+        <div id="diagnosis-title"></div>
+        <div id="diagnosis-description"></div>
+    </div>
+
+    <script>
+        let currentQuestion = 1;
+        const totalQuestions = {{ symptoms|length }};
+        const userResponses = {};
+
+        // Custom diagnosis messages
+        const diagnosisMessages = {
+            "3": { 
+                title: "Normal",
+                description: "Your responses indicate a typical range of emotions and behaviors. It’s normal to experience ups and downs, and these variations often reflect your responses to life events. If you ever feel persistent distress or changes in your mood, reaching out to a mental health professional can provide support"
+            },
+            "2": {
+                title: "Depression",
+                description: "Depression involves persistent feelings of sadness or loss of interest, which can affect daily functioning. It’s a common and treatable condition, often managed with a combination of therapy, support, and sometimes medication. A mental health professional can guide you through available options and help develop a supportive treatment plan"
+            },
+            "1": {
+                title: "Bipolar Disorder-2",
+                description: "Bipolar II disorder involves mood fluctuations, including depressive episodes and hypomanic episodes (a milder form of mania). While challenging, many people manage Bipolar II well with the right support, therapy, and sometimes medication. Consulting a mental health professional can help in building a management plan that works for you."
+            },
+            "0": {
+                title: "Bipolar Disorder-1",
+                description: "Bipolar I disorder is characterized by episodes of mania (elevated or irritable mood with high energy) and possibly depressive episodes. This condition can significantly impact daily life, but with a combination of therapy and medication, many individuals manage symptoms effectively. Working with a mental health professional is crucial for finding the best treatment approach"
+            }
+        };
+
+        document.getElementById("submit").style.display = "none";
+        document.getElementById("prev").style.display = "none";
+        document.getElementById("next").style.display = "none";
+
+        // Display the first question after the introductory message
+        document.getElementById("start").addEventListener("click", function() {
+            document.getElementById("intro-message").classList.remove("active");
+            showQuestion(currentQuestion);
+        });
+
+        function showQuestion(index) {
+            document.querySelectorAll('.question-container').forEach((el, i) => {
+                el.classList.toggle('active', i === index - 1);
+            });
+            document.getElementById("prev").style.display = index > 1 ? "inline" : "none";
+            document.getElementById("next").style.display = index < totalQuestions ? "inline" : "none";
+            document.getElementById("submit").style.display = index === totalQuestions ? "inline" : "none";
+        }
+
+        function updateSlider(symptom, value) {
+            const percentage = Math.round(value * 100);
+            document.getElementById(`${symptom}_percentage`).innerText = `${percentage}%`;
+            userResponses[symptom] = value; // Track slider value in userResponses
+        }
+
+        document.querySelectorAll('.options button').forEach(button => {
+            button.addEventListener('click', function() {
+                const symptom = this.parentElement.getAttribute('data-symptom');
+                userResponses[symptom] = this.getAttribute('data-value');
+                document.querySelectorAll(`.options[data-symptom="${symptom}"] button`).forEach(btn => btn.classList.remove('selected'));
+                this.classList.add('selected');
+            });
+        });
+
+        document.getElementById("next").addEventListener('click', () => {
+            const currentSymptom = document.querySelector('.active .options').getAttribute('data-symptom');
+            if (userResponses[currentSymptom]) {
+                currentQuestion++;
+                showQuestion(currentQuestion);
+            } else {
+                alert('Please select an option to continue.');
+            }
+        });
+
+        document.getElementById("prev").addEventListener('click', () => {
+            currentQuestion--;
+            showQuestion(currentQuestion);
+        });
+
+        document.getElementById("diagnosisForm").onsubmit = async function(e) {
+            e.preventDefault();
+            document.getElementById("submit").style.display = "none"; // Hide submit button on submission
+
+            const formData = new FormData();
+            Object.entries(userResponses).forEach(([key, value]) => {
+                formData.append(key, value);
+            });
+            const response = await fetch('/predict', { method: 'POST', body: formData });
+            const result = await response.json();
+            const diagnosis = result.diagnosis[0];
+            const message = diagnosisMessages[diagnosis];
+
+            // Display diagnosis
+            document.getElementById("diagnosis-title").innerText = `Diagnosis: ${message.title}`;
+            document.getElementById("diagnosis-description").innerText = message.description;
+            document.getElementById("result").style.display = "block";
+        };
+
+        showQuestion(currentQuestion);
+    </script>
+</body>
+</html>
